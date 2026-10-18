@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DR Control Lab｜空調需量反應互動模擬器</title>
+<style>
+  :root{
+    --bg:#0b1020;
+    --panel:#111936;
+    --panel-2:#172143;
+    --text:#eef3ff;
+    --muted:#9fb0d9;
+    --accent:#6ee7ff;
+    --accent-2:#9b8cff;
+    --good:#60e6a8;
+    --warn:#ffd166;
+    --bad:#ff7b8f;
+    --border:rgba(255,255,255,.10);
+    --shadow:0 18px 45px rgba(0,0,0,.28);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", sans-serif;
+    background:
+      radial-gradient(circle at 15% 15%, rgba(110,231,255,.10), transparent 28%),
+      radial-gradient(circle at 85% 10%, rgba(155,140,255,.12), transparent 30%),
+      linear-gradient(180deg,#0a0f1f,#0b1020 55%,#0b1020);
+    color:var(--text);
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 18px 56px}
+  .hero{
+    display:grid;
+    grid-template-columns:1.5fr .9fr;
+    gap:20px;
+    align-items:stretch;
+    margin-bottom:22px;
+  }
+  .card{
+    background:linear-gradient(180deg,rgba(23,33,67,.92),rgba(17,25,54,.94));
+    border:1px solid var(--border);
+    border-radius:22px;
+    box-shadow:var(--shadow);
+  }
+  .hero-main{padding:30px}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:12px
+  }
+  h1{margin:0;font-size:clamp(32px,5vw,54px);line-height:1.05;letter-spacing:-.03em}
+  .hero p{color:var(--muted);font-size:16px;line-height:1.8;margin:16px 0 0;max-width:720px}
+  .badge-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+  .badge{padding:9px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:#d9e3ff;font-size:13px}
+  .hero-side{padding:24px;display:flex;flex-direction:column;justify-content:space-between}
+  .status-label{color:var(--muted);font-size:13px}
+  .status-big{font-size:38px;font-weight:800;margin:6px 0 2px}
+  .status-sub{color:var(--muted);font-size:14px}
+  .mini-meter{height:10px;background:#0a0f1f;border-radius:99px;overflow:hidden;margin-top:18px;border:1px solid var(--border)}
+  .mini-meter > div{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--good));transition:.4s ease}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .panel{padding:24px}
+  .panel h2{margin:0 0 6px;font-size:20px}
+  .panel .sub{margin:0 0 20px;color:var(--muted);font-size:14px;line-height:1.6}
+  .preset-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  button{
+    border:none;cursor:pointer;font:inherit;color:var(--text);
+  }
+  .preset{
+    background:rgba(255,255,255,.05);border:1px solid var(--border);
+    border-radius:12px;padding:10px 12px;transition:.2s ease
+  }
+  .preset:hover{transform:translateY(-1px);background:rgba(255,255,255,.08)}
+  .preset.active{outline:2px solid rgba(110,231,255,.45);background:rgba(110,231,255,.08)}
+  .control{margin-bottom:22px}
+  .control-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:10px}
+  .control label{font-size:14px;font-weight:700}
+  .value-pill{padding:6px 9px;background:#0b1020;border:1px solid var(--border);border-radius:10px;color:var(--accent);font-weight:800;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:#6ee7ff}
+  .hint{color:var(--muted);font-size:12px;margin-top:6px}
+  .actions{display:flex;gap:12px;margin-top:8px}
+  .primary{flex:1;border-radius:14px;padding:14px 16px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#09101f;box-shadow:0 10px 24px rgba(110,231,255,.16)}
+  .secondary{border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.06);border:1px solid var(--border)}
+
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+  .kpi{padding:16px;border-radius:16px;background:rgba(255,255,255,.045);border:1px solid var(--border)}
+  .kpi span{display:block;color:var(--muted);font-size:12px;margin-bottom:7px}
+  .kpi strong{font-size:24px;font-variant-numeric:tabular-nums}
+  .kpi small{display:block;margin-top:5px;color:var(--muted);font-size:11px}
+
+  .chart{padding:18px;border-radius:16px;background:#0b1020;border:1px solid var(--border)}
+  .bar-row{display:grid;grid-template-columns:88px 1fr 78px;gap:10px;align-items:center;margin:14px 0}
+  .bar-label{font-size:13px;color:#dbe4ff}
+  .track{height:16px;background:#141b35;border-radius:99px;overflow:hidden}
+  .bar{height:100%;width:0%;border-radius:99px;transition:.45s ease}
+  .bar.baseline{background:linear-gradient(90deg,#9b8cff,#c3b8ff)}
+  .bar.after{background:linear-gradient(90deg,#6ee7ff,#60e6a8)}
+  .bar.target{background:linear-gradient(90deg,#ffd166,#ff9f68)}
+  .bar-value{text-align:right;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .result-note{margin-top:16px;padding:13px 14px;border-radius:14px;font-size:14px;line-height:1.6;background:rgba(255,255,255,.05);border:1px solid var(--border)}
+  .result-note.good{border-color:rgba(96,230,168,.35);background:rgba(96,230,168,.08)}
+  .result-note.warn{border-color:rgba(255,209,102,.35);background:rgba(255,209,102,.08)}
+
+  .log-wrap{margin-top:20px;padding:20px}
+  .log-wrap h2{font-size:18px;margin:0 0 12px}
+  .log{max-height:210px;overflow:auto;display:flex;flex-direction:column;gap:10px}
+  .log-item{display:grid;grid-template-columns:82px 1fr;gap:12px;padding:11px 12px;background:rgba(255,255,255,.04);border-radius:12px;border:1px solid var(--border);font-size:13px}
+  .log-time{color:var(--accent);font-variant-numeric:tabular-nums}
+  .log-msg{color:#dbe4ff}
+  footer{margin-top:24px;text-align:center;color:#7e8db8;font-size:12px;line-height:1.7}
+
+  @media (max-width:850px){
+    .hero,.grid{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    .wrap{padding:18px 12px 40px}
+    .hero-main,.hero-side,.panel{padding:18px}
+    .kpis{grid-template-columns:1fr}
+    .bar-row{grid-template-columns:76px 1fr 66px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="card hero-main">
+      <div class="eyebrow">⚡ Vibe Coding Project</div>
+      <h1>DR Control Lab</h1>
+      <p>一個用來理解「空調需量反應」的互動模擬器。調整基準用電、降載目標、目前室溫與控制設定，看看系統是否能達成 DR 事件需求。</p>
+      <div class="badge-row">
+        <span class="badge">單一 index.html</span>
+        <span class="badge">純 HTML / CSS / JavaScript</span>
+        <span class="badge">可部署 GitHub Pages</span>
+        <span class="badge">即時互動模擬</span>
+      </div>
+    </div>
+    <div class="card hero-side">
+      <div>
+        <div class="status-label">目前事件狀態</div>
+        <div class="status-big" id="eventStatus">待命中</div>
+        <div class="status-sub" id="eventSub">設定參數後按下「執行 DR 模擬」</div>
+      </div>
+      <div>
+        <div class="status-label">目標達成率</div>
+        <div class="mini-meter"><div id="heroMeter"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <main class="grid">
+    <section class="card panel">
+      <h2>控制參數</h2>
+      <p class="sub">選擇情境或自行調整參數。模擬不連接真實設備，主要用於理解 DR 控制邏輯。</p>
+
+      <div class="preset-row">
+        <button class="preset active" data-preset="normal">一般日</button>
+        <button class="preset" data-preset="peak">尖峰日</button>
+        <button class="preset" data-preset="mild">低負載日</button>
+      </div>
+
+      <div class="control">
+        <div class="control-head">
+          <label for="baseline">基準用電</label>
+          <span class="value-pill" id="baselineVal">2400 W</span>
+        </div>
+        <input id="baseline" type="range" min="1200" max="4200" step="50" value="2400">
+        <div class="hint">模擬事件發生前的空調總用電。</div>
+      </div>
+
+      <div class="control">
+        <div class="control-head">
+          <label for="target">DR 降載目標</label>
+          <span class="value-pill" id="targetVal">500 W</span>
+        </div>
+        <input id="target" type="range" min="100" max="1200" step="50" value="500">
+        <div class="hint">本次事件希望降低的功率。</div>
+      </div>
+
+      <div class="control">
+        <div class="control-head">
+          <label for="roomTemp">目前室溫</label>
+          <span class="value-pill" id="roomTempVal">24.5 °C</span>
+        </div>
+        <input id="roomTemp" type="range" min="21" max="30" step="0.5" value="24.5">
+      </div>
+
+      <div class="control">
+        <div class="control-head">
+          <label for="setpoint">DR 控制設定溫度</label>
+          <span class="value-pill" id="setpointVal">26.0 °C</span>
+        </div>
+        <input id="setpoint" type="range" min="22" max="30" step="0.5" value="26">
+        <div class="hint">設定溫度提高時，模擬中的空調降載能力也會增加。</div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="runBtn">執行 DR 模擬</button>
+        <button class="secondary" id="resetBtn">重設</button>
+      </div>
+    </section>
+
+    <section class="card panel">
+      <h2>模擬結果</h2>
+      <p class="sub">系統會依照目前參數估算事件後功率、實際降載量與達成率。</p>
+
+      <div class="kpis">
+        <div class="kpi"><span>事件後功率</span><strong id="afterPower">—</strong><small>W</small></div>
+        <div class="kpi"><span>預估降載量</span><strong id="reduction">—</strong><small>W</small></div>
+        <div class="kpi"><span>達成率</span><strong id="rate">—</strong><small>%</small></div>
+      </div>
+
+      <div class="chart">
+        <div class="bar-row">
+          <div class="bar-label">基準用電</div>
+          <div class="track"><div class="bar baseline" id="baselineBar"></div></div>
+          <div class="bar-value" id="baselineBarVal">2400 W</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">事件後</div>
+          <div class="track"><div class="bar after" id="afterBar"></div></div>
+          <div class="bar-value" id="afterBarVal">—</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">降載目標</div>
+          <div class="track"><div class="bar target" id="targetBar"></div></div>
+          <div class="bar-value" id="targetBarVal">500 W</div>
+        </div>
+      </div>
+
+      <div class="result-note" id="resultNote">尚未執行模擬。左側調整參數後開始測試。</div>
+    </section>
+  </main>
+
+  <section class="card log-wrap">
+    <h2>事件紀錄</h2>
+    <div class="log" id="eventLog">
+      <div class="log-item"><div class="log-time">SYSTEM</div><div class="log-msg">DR Control Lab 已啟動，等待使用者輸入參數。</div></div>
+    </div>
+  </section>
+
+  <footer>
+    本頁為課堂 Vibe Coding 練習，模擬公式僅用於互動展示，不代表真實建築或設備控制結果。<br>
+    Built as a single-file Web App for GitHub Pages.
+  </footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const baseline = $('baseline');
+const target = $('target');
+const roomTemp = $('roomTemp');
+const setpoint = $('setpoint');
+
+const presets = {
+  normal: { baseline:2400, target:500, roomTemp:24.5, setpoint:26 },
+  peak:   { baseline:3400, target:800, roomTemp:27.5, setpoint:29 },
+  mild:   { baseline:1700, target:300, roomTemp:23, setpoint:24.5 }
+};
+
+function refreshLabels(){
+  $('baselineVal').textContent = `${baseline.value} W`;
+  $('targetVal').textContent = `${target.value} W`;
+  $('roomTempVal').textContent = `${Number(roomTemp.value).toFixed(1)} °C`;
+  $('setpointVal').textContent = `${Number(setpoint.value).toFixed(1)} °C`;
+  $('baselineBarVal').textContent = `${baseline.value} W`;
+  $('targetBarVal').textContent = `${target.value} W`;
+}
+
+function setBar(el, value, max){
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  el.style.width = `${pct}%`;
+}
+
+function addLog(message){
+  const now = new Date();
+  const t = now.toLocaleTimeString('zh-TW', {hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const row = document.createElement('div');
+  row.className = 'log-item';
+  row.innerHTML = `<div class="log-time">${t}</div><div class="log-msg">${message}</div>`;
+  $('eventLog').prepend(row);
+}
+
+function runSimulation(){
+  const b = Number(baseline.value);
+  const t = Number(target.value);
+  const rt = Number(roomTemp.value);
+  const sp = Number(setpoint.value);
+
+  // Demo-only deterministic model:
+  // higher setpoint delta and higher baseline provide more possible reduction.
+  const tempDelta = Math.max(0, sp - rt);
+  const tempEffect = tempDelta * 115;
+  const loadEffect = b * 0.075;
+  const maxSafeReduction = b * 0.38;
+  const estimatedReduction = Math.round(Math.min(maxSafeReduction, t * 0.72 + tempEffect + loadEffect));
+  const after = Math.max(0, b - estimatedReduction);
+  const rate = Math.round((estimatedReduction / t) * 1000) / 10;
+
+  $('afterPower').textContent = after;
+  $('reduction').textContent = estimatedReduction;
+  $('rate').textContent = rate.toFixed(1);
+
+  const max = 4200;
+  setBar($('baselineBar'), b, max);
+  setBar($('afterBar'), after, max);
+  setBar($('targetBar'), t, max);
+  $('afterBarVal').textContent = `${after} W`;
+
+  const meter = Math.min(rate, 100);
+  $('heroMeter').style.width = `${meter}%`;
+
+  if(rate >= 100){
+    $('eventStatus').textContent = '達標';
+    $('eventStatus').style.color = 'var(--good)';
+    $('eventSub').textContent = `本次事件達成率 ${rate.toFixed(1)}%`;
+    $('resultNote').className = 'result-note good';
+    $('resultNote').textContent = `✅ 模擬達標：預估可降低 ${estimatedReduction} W，高於 ${t} W 目標。`;
+    addLog(`DR 模擬完成：基準 ${b} W → 事件後 ${after} W，降載 ${estimatedReduction} W，達成率 ${rate.toFixed(1)}%。`);
+  }else{
+    $('eventStatus').textContent = '未達標';
+    $('eventStatus').style.color = 'var(--warn)';
+    $('eventSub').textContent = `本次事件達成率 ${rate.toFixed(1)}%`;
+    $('resultNote').className = 'result-note warn';
+    $('resultNote').textContent = `⚠️ 尚未達標：預估降低 ${estimatedReduction} W，距離 ${t} W 目標還差 ${Math.max(0,t-estimatedReduction)} W。可嘗試提高設定溫度或選擇不同情境。`;
+    addLog(`DR 模擬未達標：預估降載 ${estimatedReduction} W，目標 ${t} W。`);
+  }
+}
+
+function applyPreset(name){
+  const p = presets[name];
+  baseline.value = p.baseline;
+  target.value = p.target;
+  roomTemp.value = p.roomTemp;
+  setpoint.value = p.setpoint;
+  document.querySelectorAll('.preset').forEach(btn => btn.classList.toggle('active', btn.dataset.preset === name));
+  refreshLabels();
+  addLog(`切換情境：${name === 'normal' ? '一般日' : name === 'peak' ? '尖峰日' : '低負載日'}。`);
+}
+
+[baseline,target,roomTemp,setpoint].forEach(el => el.addEventListener('input', refreshLabels));
+
+document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => applyPreset(btn.dataset.preset)));
+$('runBtn').addEventListener('click', runSimulation);
+$('resetBtn').addEventListener('click', () => {
+  applyPreset('normal');
+  $('afterPower').textContent = '—';
+  $('reduction').textContent = '—';
+  $('rate').textContent = '—';
+  $('afterBar').style.width = '0%';
+  $('heroMeter').style.width = '0%';
+  $('afterBarVal').textContent = '—';
+  $('eventStatus').textContent = '待命中';
+  $('eventStatus').style.color = 'var(--text)';
+  $('eventSub').textContent = '設定參數後按下「執行 DR 模擬」';
+  $('resultNote').className = 'result-note';
+  $('resultNote').textContent = '尚未執行模擬。左側調整參數後開始測試。';
+  addLog('參數已重設。');
+});
+
+refreshLabels();
+setBar($('baselineBar'), Number(baseline.value), 4200);
+setBar($('targetBar'), Number(target.value), 4200);
+</script>
+</body>
+</html>
